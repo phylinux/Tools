@@ -243,50 +243,50 @@ program structure_factor
             !-------------------
             write(20,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
 
-            !--- Write Spin-Flip Channel ----------------------------------------------!
-            c = CMPLX(0.d0,0.d0)
-            do sb2=1,subl; do sb1=1,subl
-                br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
-                br = -br
-                ns_factor = 0.d0
-                if( dot_product(q,q)>1.d-4  ) then
-                    do i=1, 3; do j=1, 3
-                        if( i==j  ) then
-                            ns_factor = ns_factor + (1.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
-                        else
-                            ns_factor = ns_factor + (0.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
-                        end if
-                    end do; end do
-                    ns_factor = ns_factor / dot_product(sublatvec(1,1:3),sublatvec(1,1:3))
-                else
-                end if
-                c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br)) *ns_factor
-            end do; end do
-            !write(30,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
-            if( dot_product(q,q)>1.d-4  ) then
-                write(30,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
-            end if
+            !!--- Write Spin-Flip Channel ----------------------------------------------!
+            !c = CMPLX(0.d0,0.d0)
+            !do sb2=1,subl; do sb1=1,subl
+            !    br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
+            !    br = -br
+            !    ns_factor = 0.d0
+            !    if( dot_product(q,q)>1.d-4  ) then
+            !        do i=1, 3; do j=1, 3
+            !            if( i==j  ) then
+            !                ns_factor = ns_factor + (1.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
+            !            else
+            !                ns_factor = ns_factor + (0.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
+            !            end if
+            !        end do; end do
+            !        ns_factor = ns_factor / dot_product(sublatvec(1,1:3),sublatvec(1,1:3))
+            !    else
+            !    end if
+            !    c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br)) *ns_factor
+            !end do; end do
+            !!write(30,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+            !if( dot_product(q,q)>1.d-4  ) then
+            !    write(30,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+            !end if
 
-            !--- Write Non-Spin-Flip Channel ----------------------------------------------!
-            c = CMPLX(0.d0,0.d0)
-            do sb2=1,subl; do sb1=1,subl
-                br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
-                br = -br
-                ns_factor = 0.d0
-                if( dot_product(q,q)>1.d-4  ) then
-                    do i=1, 3; do j=1, 3
-                        if( i==j  ) then
-                            ns_factor = ns_factor + (1.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
-                        else
-                            ns_factor = ns_factor + (0.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
-                        end if
-                    end do; end do
-                    ns_factor = ns_factor / dot_product(sublatvec(1,1:3),sublatvec(1,1:3))
-                else
-                end if
-                c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br)) *ns_factor
-            end do; end do
-            write(40,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+            !!--- Write Non-Spin-Flip Channel ----------------------------------------------!
+            !c = CMPLX(0.d0,0.d0)
+            !do sb2=1,subl; do sb1=1,subl
+            !    br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
+            !    br = -br
+            !    ns_factor = 0.d0
+            !    if( dot_product(q,q)>1.d-4  ) then
+            !        do i=1, 3; do j=1, 3
+            !            if( i==j  ) then
+            !                ns_factor = ns_factor + (1.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
+            !            else
+            !                ns_factor = ns_factor + (0.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
+            !            end if
+            !        end do; end do
+            !        ns_factor = ns_factor / dot_product(sublatvec(1,1:3),sublatvec(1,1:3))
+            !    else
+            !    end if
+            !    c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br)) *ns_factor
+            !end do; end do
+            !write(40,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
 
 
 
