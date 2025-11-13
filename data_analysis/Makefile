@@ -6,5 +6,6 @@ F90=data_analysis.f90
 EXEC=data_analysis
 
 all:
-	$(FCC) $(FC) $(F90) -o $(EXEC)
+	$(FCC) $(FC) data_analysis.f90      -o data_analysis
+	$(FCC) $(FC) histogram_analysis.f90 -o histogram_analysis
 	-rm -f *.mod

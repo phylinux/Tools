@@ -13,13 +13,16 @@ PROGRAM main
     logical                     :: existyn
     integer(4)                  :: iblck
     integer(4)                  :: iobs
-    real(8)                     :: c
 
     real(8), allocatable        :: binObs(:,:)
+    real(8), allocatable        :: initialdata(:,:,:)
+    integer(4)                  :: len
     character(100)              :: charbins
     integer(4)                  :: bins
 
-    integer(4)                  :: i
+    real(8)                     :: maxv, minv, unitv
+    real(8)                     :: c(2)
+    integer(4)                  :: i, j
 
     narg = command_argument_count()
 
@@ -52,34 +55,52 @@ PROGRAM main
 
     open(1,file=trim(filename), action="read")
     NBlck = 0
-    read(1,*) NObs
+    read(1,*) len
     do
-        read(1,*,end=10) c
-        do iobs=1, NObs
-            read(1,*) c
+        read(1,*,end=10) c(1)
+        do iobs=1, len
+            read(1,*) c(1:2)
         end do
         NBlck = NBlck+1
     end do
     10 close(1)
 
     open(1,file="info.txt",action="write")
-    write(1,'(A32,I6)') "The number of observables is", NObs
+    write(1,'(A32,I6)') "The number of observables is", len
     write(1,'(A32,I6)') "The number of Block is", NBlck
     close(1)
 
-    allocate(Obs(NObs,NBlck))
-    Obs = 0.d0
+    allocate(initialdata(len,NBlck,2))
+    initialdata = 0.d0
 
+    maxv = -1.d30
+    minv =  1.d30
     open(1,file=trim(filename),action="read")
-    read(1,*) NObs
+    read(1,*) len
     do iblck=1, NBlck
-        read(1,*) c
-        do iobs=1, NObs
-            read(1,*) c
-            Obs(iobs,iblck) = c
+        read(1,*) c(1)
+        do iobs=1, len
+            read(1,*) c(1:2)
+            initialdata(iobs,iblck,1:2) = c(1:2)
+            if( maxv<c(1) ) maxv=c(1)
+            if( minv>c(1) ) minv=c(1)
         end do
     end do
     close(1)
+
+    NObs=500
+    unitv = (maxv-minv)/NObs
+
+    allocate(Obs(NObs,NBlck))
+    Obs = 0.d0
+    do iblck=1, NBlck
+        do iobs=1, len
+            c(1:2) = initialdata(iobs,iblck,1:2)
+            j = int((c(1)-minv)/unitv)+1; if( J>NObs ) j=NObs
+            Obs(j,iblck) = Obs(j,iblck) + c(2)
+        end do
+    end do
+    !Obs = Obs*NObs
 
     if( method==1 ) then
         !write(*,'(A16,I8)') "Initial bins  = ", NBlck
@@ -111,7 +132,10 @@ PROGRAM main
     Cor = 0.d0
 
     call stat_analy(NBlck, method)
-    call write2file(NObs)
+
+    do i = 1, NObs
+    	write(*,'(4ES18.8)') minv+(i-1.d0+0.5d0)*unitv, Ave(i), Dev(i), Cor(i)
+    enddo
 
     stop
 
