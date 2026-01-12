@@ -13,311 +13,351 @@
 ! ...
 
 program structure_factor
-    implicit none
+	implicit none
 
-    integer(4)                  :: narg                 ! the number of input argument
+	integer(4)                  :: narg                 ! the number of input argument
 
-    character(50)               :: filename
-    integer(4)                  :: GN
-    integer(4)                  :: Ntau
-    complex(8), allocatable     :: bin(:,:,:,:,:,:,:)
-    complex(8), allocatable     :: SqSq(:,:,:,:,:,:)
-    real(8)                     :: q(3)
-    integer(4)                  :: Lx, Ly, Lz
-    integer(4)                  :: subl
-    integer(4)                  :: h, l, m
-    integer(4)                  :: h0, l0, m0
-    integer(4)                  :: h1, h2, l1, l2, m1, m2
-    integer(4)                  :: fm
-    integer(4)                  :: NBlck
-    real(8)                     :: reclatvec(3,3)
-    real(8), allocatable        :: sublatvec(:,:)
-    !integer(4)                  :: nperiod
-    real(8)                     :: nperiod
-    character(50)               :: charnum, charformat
-    integer(4)                  :: iGN
-    integer(4)                  :: ix, iy, iz
-    integer(4)                  :: sb1, sb2
-    real(8)                     :: clx(2)
-    complex(8)                  :: c
-    real(8)                     :: br
-    real(8)                     :: ns_factor
-    integer(4)                  :: ndata
-    integer(4)                  :: i, j
+	character(50)               :: filename
+	integer(4)                  :: GN
+	integer(4)                  :: Ntau
+	complex(8), allocatable     :: bin(:,:,:,:,:,:,:)
+	complex(8), allocatable     :: SqSq(:,:,:,:,:,:)
+	real(8)                     :: q(3)
+	integer(4)                  :: Lx, Ly, Lz
+	integer(4)                  :: subl
+	integer(4)                  :: h, l, m
+	integer(4)                  :: h0, l0, m0
+	integer(4)                  :: h1, h2, l1, l2, m1, m2
+	integer(4)                  :: fm
+	integer(4)                  :: NBlck
+	real(8)                     :: reclatvec(3,3)
+	real(8), allocatable        :: sublatvec(:,:)
+	!integer(4)                  :: nperiod
+	real(8)                     :: nperiod
+	character(50)               :: charnum, charformat
+	integer(4)                  :: iGN
+	integer(4)                  :: ix, iy, iz
+	integer(4)                  :: sb1, sb2
+	real(8)                     :: clx(2)
+	complex(8)                  :: c, c0, c1
+	complex(8), allocatable     :: cmatrix(:,:)
+	real(8)                     :: br
+	real(8)                     :: ns_factor
+	integer(4)                  :: ndata
+	integer(4)                  :: i, j
 
-    narg = command_argument_count()
-    if( narg<8 ) then
-        write(*,*) "Please enter: filename, GN, Ntau, Lx, Ly, Lz, subl, nperiod; fm"
-        stop
-    end if
+	narg = command_argument_count()
+	if( narg<8 ) then
+		write(*,*) "Please enter: filename, GN, Ntau, Lx, Ly, Lz, subl, nperiod; fm"
+		stop
+	end if
 
-    call getarg(1, filename)
-    call getarg(2, charnum)
-    read(charnum,*) GN
-    call getarg(3, charnum)
-    read(charnum,*) Ntau
-    call getarg(4, charnum)
-    read(charnum,*) Lx
-    call getarg(5, charnum)
-    read(charnum,*) Ly
-    call getarg(6, charnum)
-    read(charnum,*) Lz
-    call getarg(7, charnum)
-    read(charnum,*) subl
-    call getarg(8, charnum)
-    read(charnum,*) nperiod
-    if ( narg==9 ) then
-        call getarg( 9, charnum)
-        read(charnum,*) fm      ! 1: keep q=0;  0: set S(q=0)=0
-        h0 = -1
-        l0 = -1
-        m0 = -1
-    else if( narg>9 ) then
-        call getarg( 9, charnum)
-        read(charnum,*) fm      ! 1: keep q=0;  0: set S(q=0)=0
-        call getarg(10, charnum)
-        read(charnum,*) h0
-        call getarg(11, charnum)
-        read(charnum,*) l0
-        call getarg(12, charnum)
-        read(charnum,*) m0
-    else
-        fm =1
-        h0 = -1
-        l0 = -1
-        m0 = -1
-    end if
+	call getarg(1, filename)
+	call getarg(2, charnum)
+	read(charnum,*) GN
+	call getarg(3, charnum)
+	read(charnum,*) Ntau
+	call getarg(4, charnum)
+	read(charnum,*) Lx
+	call getarg(5, charnum)
+	read(charnum,*) Ly
+	call getarg(6, charnum)
+	read(charnum,*) Lz
+	call getarg(7, charnum)
+	read(charnum,*) subl
+	call getarg(8, charnum)
+	read(charnum,*) nperiod
+	if ( narg==9 ) then
+		call getarg( 9, charnum)
+		read(charnum,*) fm      ! 1: keep q=0;  0: set S(q=0)=0
+		h0 = -1
+		l0 = -1
+		m0 = -1
+	else if( narg>9 ) then
+		call getarg( 9, charnum)
+		read(charnum,*) fm      ! 1: keep q=0;  0: set S(q=0)=0
+		call getarg(10, charnum)
+		read(charnum,*) h0
+		call getarg(11, charnum)
+		read(charnum,*) l0
+		call getarg(12, charnum)
+		read(charnum,*) m0
+	else
+		fm =1
+		h0 = -1
+		l0 = -1
+		m0 = -1
+	end if
 
-    if( Lz==1 ) then
-        h0 = -1
-        l0 = -1
-        m0 = -1
-    end if
+	if( Lz==1 ) then
+		h0 = -1
+		l0 = -1
+		m0 = -1
+	end if
 
-    allocate(SqSq(0:GN,subl,subl,0:Lx-1,0:Ly-1,0:Lz-1))
-    SqSq = CMPLX(0.d0,0.d0,8)
+	allocate(SqSq(0:2*GN,subl,subl,0:Lx-1,0:Ly-1,0:Lz-1))
+	SqSq = CMPLX(0.d0,0.d0,8)
 
-    reclatvec = 0.d0
-    open(10,file="reclatvec.dat",action="read")
-    do i=1, 3
-        read(10,*) reclatvec(i,1:3)
-    end do
-    close(10)
+	allocate(cmatrix(subl,subl))
 
-    allocate(sublatvec(subl,3))
-    sublatvec = 0.d0
-    open(10,file="sublatvec.dat",action="read")
-    do i=1, subl
-        read(10,*) sublatvec(i,1:3)
-        sublatvec(i,1:3) = sublatvec(i,1:3) - (/1.d0,1.d0,1.d0/)*0.25d0
-    end do
-    close(10)
+	reclatvec = 0.d0
+	open(10,file="reclatvec.dat",action="read")
+	do i=1, 3
+		read(10,*) reclatvec(i,1:3)
+	end do
+	close(10)
 
-    NBlck = 0
-    !SqSq = 0.d0
-    SqSq = CMPLX(0.d0,0.d0)
-    ndata = 0
-    !--- START READ DATA -------------------------------------------------!
-    open(10,file=trim(filename)//".txt",action="read")
-    !--- output bin ---!
-    open(20,file=trim(filename)//"-bin.dat",action="write")
-    do
-        read(10,*,end=10) i
-        do iz=0, Lz-1; do iy=0, Ly-1; do ix=0, Lx-1
-        write(20,'(4I4)') ix+iy*Lx+iz*Lx*Ly+1, ix, iy, iz
-        q = reclatvec(1,1:3)/Lx*ix + reclatvec(2,1:3)/Ly*iy + reclatvec(3,1:3)/Lz*iz
-        do iGN=0, Ntau
-            c = CMPLX(0.d0,0.d0)
-            do sb2=1, subl; do sb1=1,subl      !!!!! sb2, sb1
-                br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
-                br = -br
-                read(10,*) clx(1), clx(2)
-                !write(*,*) clx(1), clx(2)
-                c = c + CMPLX(clx(1),clx(2))*CMPLX(dcos(br),dsin(br))
-                ndata = ndata+1
-            end do; end do
-            write(20,'(ES16.8)') real(c)
-            !write(20,'(4ES16.8)') q(1:3), real(c)
-        end do
-        end do; end do; end do
-        NBlck = NBlck+1
-    end do
-    10 rewind(10)
-    close(20)
-    if( GN==0 ) call system("rm -f "//trim(filename)//"-bin.dat")
-    if( ndata/=(Lx*Ly*Lz*subl*subl)*NBlck*(Ntau+1) .or. &
-        ix/=Lx .or. iy/=Ly .or. iz/=Lz .or. &
-        sb1/=subl+1 .or. sb2/=subl+1 .or. &
-        iGN/=Ntau+1 ) then
-        write(*,*) "Err: the data is incomplete."
-        stop
-    end if
-    !write(*,*) ndata, ix, iy, iz, sb1, sb2, iGN
-    write(*,'(A10,I6)') "NBlck = ", NBlck
+	allocate(sublatvec(subl,3))
+	sublatvec = 0.d0
+	open(10,file="sublatvec.dat",action="read")
+	do i=1, subl
+		read(10,*) sublatvec(i,1:3)
+		sublatvec(i,1:3) = sublatvec(i,1:3) !- (/1.d0,1.d0,1.d0/)*0.25d0
+	end do
+	close(10)
 
-    do
-        read(10,*,end=20) i
-        do iz=0, Lz-1; do iy=0, Ly-1; do ix=0, Lx-1
-            do iGN=0, Ntau
-                do sb2=1, subl; do sb1=1,subl      !!!!! sb2, sb1
-                    read(10,*) clx(1), clx(2)
-                    SqSq(iGN,sb1,sb2,ix,iy,iz) = SqSq(iGN,sb1,sb2,ix,iy,iz) + CMPLX(clx(1),clx(2),8)
-                    !ndata = ndata+1
-                end do; end do
-            end do
-        end do; end do; end do
-        !NBlck = NBlck+1
-    end do
-    20 close(10)
-    !--- READ DATA END ---------------------------------------------------!
+	NBlck = 0
+	!SqSq = 0.d0
+	SqSq = CMPLX(0.d0,0.d0)
+	ndata = 0
+	!--- START READ DATA -------------------------------------------------!
+	open(10,file=trim(filename)//".txt",action="read")
+	!--- output bin ---!
+	!open(20,file=trim(filename)//"-bin.dat",action="write")
+	!open(21,file=trim(filename)//"-bin-trace.dat",action="write")
+	!open(22,file=trim(filename)//"-bin-eigen.dat",action="write")
+	do
+		read(10,*,end=10) i
+		do iz=0, Lz-1; do iy=0, Ly-1; do ix=0, Lx-1
+			!write(20,'(4I4)') ix+iy*Lx+iz*Lx*Ly+1, ix, iy, iz
+			!write(21,'(4I4)') ix+iy*Lx+iz*Lx*Ly+1, ix, iy, iz
+			!write(22,'(4I4)') ix+iy*Lx+iz*Lx*Ly+1, ix, iy, iz
+			q = reclatvec(1,1:3)/Lx*ix + reclatvec(2,1:3)/Ly*iy + reclatvec(3,1:3)/Lz*iz
+			do iGN=0, Ntau
+				c0 = CMPLX(0.d0,0.d0)
+				c1 = CMPLX(0.d0,0.d0)
+				cmatrix = CMPLX(0.d0,0.d0)
+				do sb2=1, subl; do sb1=1,subl      !!!!! sb2, sb1
+					br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
+					br = -br
+					read(10,*) clx(1), clx(2)
+					!write(*,*) clx(1), clx(2)
 
-    !if( fm==0 ) then
-    !	do sb1=1, subl
-    !		SqSq(:,sb1,sb1,0,0,0)  = CMPLX(0.d0,0.d0)
-    !	end do
-    !end if
+					!--- 1 ---!
+					c0 = c0 + CMPLX(clx(1),clx(2))*CMPLX(dcos(br),dsin(br))
+					!--- 2 ---!
+					if( sb1==sb2 ) c1 = c1 + CMPLX(clx(1),clx(2))*CMPLX(dcos(br),dsin(br))
+					!--- 3 ---!
+					cmatrix(sb1,sb2) = CMPLX(clx(1),clx(2))
 
-    SqSq = SqSq/(NBlck*1.d0)
+					ndata = ndata+1
+				end do; end do
+				!write(20,'(2ES16.8)') real(c0), aimag(c0)
+				!!write(20,'(4ES16.8)') q(1:3), real(c)
+				!write(21,'(ES16.8)') real(c1)
+			end do
+		end do; end do; end do
+		NBlck = NBlck+1
+	end do
+	!close(20)
+	!close(21)
+	!close(22)
+	10 rewind(10)
+	if( GN==0 ) call system("rm -f "//trim(filename)//"-bin.dat")
+	if( ndata/=(Lx*Ly*Lz*subl*subl)*NBlck*(Ntau+1) .or. &
+		& ix/=Lx .or. iy/=Ly .or. iz/=Lz .or. &
+		& sb1/=subl+1 .or. sb2/=subl+1 .or. &
+		& iGN/=Ntau+1 ) then
+		write(*,*) "Err: the data is incomplete."
+		stop
+	end if
+	!write(*,*) ndata, ix, iy, iz, sb1, sb2, iGN
+	write(*,'(A10,I6)') "NBlck = ", NBlck
 
-    open(10,file=trim(filename)//"-sum.dat",action="write")
-    open(20,file=trim(filename)//"-trace.dat",action="write")
-    open(30,file=trim(filename)//"-SF.dat",action="write")
-    open(40,file=trim(filename)//"-NSF.dat",action="write")
-    if( GN>0 ) open(50,file=trim(filename)//"-tau.dat",action="write")
-    if( Lz==1 ) then
-        m1=0; m2=0
-    else
-        !m1=-nperiod*Lz+1; m2=nperiod*Lz-1
-        m1=-floor(nperiod*Lz+1.d-6); m2=floor(nperiod*Lz+1.d-6)
-    end if
-    l1=-floor(nperiod*Ly+1.d-6); l2=floor(nperiod*Ly+1.d-6)
-    h1=-floor(nperiod*Lx+1.d-6); h2=floor(nperiod*Lx+1.d-6)
+	do
+		read(10,*,end=20) i
+		do iz=0, Lz-1; do iy=0, Ly-1; do ix=0, Lx-1
+			do iGN=0, Ntau
+				do sb2=1, subl; do sb1=1,subl      !!!!! sb2, sb1
+					read(10,*) clx(1), clx(2)
+					SqSq(iGN,sb1,sb2,ix,iy,iz) = SqSq(iGN,sb1,sb2,ix,iy,iz) + CMPLX(clx(1),clx(2),8)
+					!ndata = ndata+1
+				end do; end do
+			end do
+		end do; end do; end do
+		!NBlck = NBlck+1
+	end do
+	20 close(10)
+	!--- READ DATA END ---------------------------------------------------!
 
-    if( h0/=-1 ) then
-        h1=h0; h2=h0
-    end if
-    if( l0/=-1 ) then
-        l1=l0; l2=l0
-    end if
-    if( m0/=-1 ) then
-        m1=m0; m2=m0
-    end if
+	!if( fm==0 ) then
+	!	do sb1=1, subl
+	!		SqSq(:,sb1,sb1,0,0,0)  = CMPLX(0.d0,0.d0)
+	!	end do
+	!end if
 
+	SqSq = SqSq/(NBlck*1.d0)
 
-    do m=m1, m2
-    do l=l1, l2
-        do h=h1, h2
-    !do m=0, Lz-1
-    !do l=0, Ly-1
-    !	do h=0, Lx-1
-            iGN=0
-            q = reclatvec(1,1:3)/Lx*h + reclatvec(2,1:3)/Ly*l + reclatvec(3,1:3)/Lz*m
-            ix = mod(h+floor(nperiod+1.d0)*Lx,Lx)
-            iy = mod(l+floor(nperiod+1.d0)*Ly,Ly)
-            iz = mod(m+floor(nperiod+1.d0)*Lz,Lz)
+	open(10,file=trim(filename)//"-SSF.dat",action="write")
+	!open(11,file=trim(filename)//"-trace.dat",action="write")
+	!open(12,file=trim(filename)//"-nondiagonal.dat",action="write")
+	!open(30,file=trim(filename)//"-SF.dat",action="write")
+	!open(40,file=trim(filename)//"-NSF.dat",action="write")
+	!if( GN>0 ) open(50,file=trim(filename)//"-tau.dat",action="write")
+	if( Lz==1 ) then
+		m1=0; m2=0
+	else
+		!m1=-nperiod*Lz+1; m2=nperiod*Lz-1
+		m1=-floor(nperiod*Lz+1.d-6); m2=floor(nperiod*Lz+1.d-6)
+	end if
+	l1=-floor(nperiod*Ly+1.d-6); l2=floor(nperiod*Ly+1.d-6)
+	h1=-floor(nperiod*Lx+1.d-6); h2=floor(nperiod*Lx+1.d-6)
 
-            !--- Write sum -----------------------------------------------------!
-            c = CMPLX(0.d0,0.d0)
-            do sb2=1,subl; do sb1=1,subl
-                br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
-                br = -br
-                c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br))
-            end do; end do
-            !-------------------
-            if( fm==0 ) then
-                if( mod(h,Lx)==0 .and. mod(l,Ly)==0 .and. mod(m,Lz)==0 ) c= CMPLX(0.d0,0.d0)
-            end if
-            !-------------------
-            write(10,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
-
-            !--- Write trace ---------------------------------------------------!
-            c = CMPLX(0.d0,0.d0)
-            do sb1=1, subl
-                c = c + SqSq(iGN,sb1,sb1,ix,iy,iz)
-            end do
-            !c = c/subl
-            !-------------------
-            if( fm==0 ) then
-                if( mod(h,Lx)==0 .and. mod(l,Ly)==0 .and. mod(m,Lz)==0 ) c= CMPLX(0.d0,0.d0)
-            end if
-            !-------------------
-            write(20,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
-
-            !!--- Write Spin-Flip Channel ----------------------------------------------!
-            !c = CMPLX(0.d0,0.d0)
-            !do sb2=1,subl; do sb1=1,subl
-            !    br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
-            !    br = -br
-            !    ns_factor = 0.d0
-            !    if( dot_product(q,q)>1.d-4  ) then
-            !        do i=1, 3; do j=1, 3
-            !            if( i==j  ) then
-            !                ns_factor = ns_factor + (1.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
-            !            else
-            !                ns_factor = ns_factor + (0.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
-            !            end if
-            !        end do; end do
-            !        ns_factor = ns_factor / dot_product(sublatvec(1,1:3),sublatvec(1,1:3))
-            !    else
-            !    end if
-            !    c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br)) *ns_factor
-            !end do; end do
-            !!write(30,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
-            !if( dot_product(q,q)>1.d-4  ) then
-            !    write(30,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
-            !end if
-
-            !!--- Write Non-Spin-Flip Channel ----------------------------------------------!
-            !c = CMPLX(0.d0,0.d0)
-            !do sb2=1,subl; do sb1=1,subl
-            !    br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
-            !    br = -br
-            !    ns_factor = 0.d0
-            !    if( dot_product(q,q)>1.d-4  ) then
-            !        do i=1, 3; do j=1, 3
-            !            if( i==j  ) then
-            !                ns_factor = ns_factor + (1.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
-            !            else
-            !                ns_factor = ns_factor + (0.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
-            !            end if
-            !        end do; end do
-            !        ns_factor = ns_factor / dot_product(sublatvec(1,1:3),sublatvec(1,1:3))
-            !    else
-            !    end if
-            !    c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br)) *ns_factor
-            !end do; end do
-            !write(40,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+	if( h0/=-1 ) then
+		h1=h0; h2=h0
+	end if
+	if( l0/=-1 ) then
+		l1=l0; l2=l0
+	end if
+	if( m0/=-1 ) then
+		m1=m0; m2=m0
+	end if
 
 
+	do m=m1, m2
+	do l=l1, l2
+		do h=h1, h2
+			!do m=0, Lz-1
+			!do l=0, Ly-1
+			!	do h=0, Lx-1
+			iGN=0
+			q = reclatvec(1,1:3)/Lx*h + reclatvec(2,1:3)/Ly*l + reclatvec(3,1:3)/Lz*m
+			ix = mod(h+floor(nperiod+1.d0)*Lx,Lx)
+			iy = mod(l+floor(nperiod+1.d0)*Ly,Ly)
+			iz = mod(m+floor(nperiod+1.d0)*Lz,Lz)
 
-            !--- Write SSF(\tau) -----------------------------------------------!
-            ix=h; iy=l; iz=m
-            !if( GN>0 ) then
-            if(   GN>0  .and.             &
-                  ix>=0 .and. ix<Lx .and. &
-                  iy>=0 .and. iy<Ly .and. &
-                  iz>=0 .and. iz<Lz       &
-                 ) then
-                write(50,'(A2, 4I4)') "#", ix+iy*Lx+iz*Lx*Ly+1, ix, iy, iz
-                do iGN=0, Ntau
-                    c = CMPLX(0.d0,0.d0)
-                    do sb2=1,subl; do sb1=1,subl
-                        br = -dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
-                        c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br))
-                    end do; end do
-                    write(50,'(ES12.4)') real(c)
-                end do
-                write(50,'()')
-                write(50,'()')
-            end if
-        end do
-        write(10,'()')
-        write(20,'()')
-    end do
-    end do
-    close(10)
-    close(20)
-    close(30)
-    close(40)
-    if( GN>0 ) close(50)
+			!--- Write sum -----------------------------------------------------!
+			c = CMPLX(0.d0,0.d0)
+			do sb2=1,subl; do sb1=1,subl
+				br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
+				br = -br
+				c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br))
+			end do; end do
+			!-------------------
+			if( fm==0 ) then
+				if( mod(h,Lx)==0 .and. mod(l,Ly)==0 .and. mod(m,Lz)==0 ) c= CMPLX(0.d0,0.d0)
+			end if
+			!-------------------
+			write(10,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+
+
+			!!--- Write trace ---------------------------------------------------!
+			!c = CMPLX(0.d0,0.d0)
+			!do sb1=1, subl
+			!	c = c + SqSq(iGN,sb1,sb1,ix,iy,iz)
+			!end do
+			!!c = c/subl
+			!!-------------------
+			!if( fm==0 ) then
+			!	if( mod(h,Lx)==0 .and. mod(l,Ly)==0 .and. mod(m,Lz)==0 ) c= CMPLX(0.d0,0.d0)
+			!end if
+			!!-------------------
+			!write(11,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+			!!--- Write non-diagonal --------------------------------------------!
+			!c = CMPLX(0.d0,0.d0)
+			!do sb2=1,subl; do sb1=1,subl
+			!	if( sb1/=sb2 ) then
+			!		br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
+			!		br = -br
+			!		c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br))
+			!	end if
+			!end do; end do
+			!!c = c/subl
+			!!-------------------
+			!if( fm==0 ) then
+			!	if( mod(h,Lx)==0 .and. mod(l,Ly)==0 .and. mod(m,Lz)==0 ) c= CMPLX(0.d0,0.d0)
+			!end if
+			!!-------------------
+			!write(12,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+
+
+			!!--- Write Spin-Flip Channel ----------------------------------------------!
+			!c = CMPLX(0.d0,0.d0)
+			!do sb2=1,subl; do sb1=1,subl
+			!    br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
+			!    br = -br
+			!    ns_factor = 0.d0
+			!    if( dot_product(q,q)>1.d-4  ) then
+			!        do i=1, 3; do j=1, 3
+			!            if( i==j  ) then
+			!                ns_factor = ns_factor + (1.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
+			!            else
+			!                ns_factor = ns_factor + (0.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
+			!            end if
+			!        end do; end do
+			!        ns_factor = ns_factor / dot_product(sublatvec(1,1:3),sublatvec(1,1:3))
+			!    else
+			!    end if
+			!    c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br)) *ns_factor
+			!end do; end do
+			!!write(30,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+			!if( dot_product(q,q)>1.d-4  ) then
+			!    write(30,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+			!end if
+
+			!!--- Write Non-Spin-Flip Channel ----------------------------------------------!
+			!c = CMPLX(0.d0,0.d0)
+			!do sb2=1,subl; do sb1=1,subl
+			!    br = dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
+			!    br = -br
+			!    ns_factor = 0.d0
+			!    if( dot_product(q,q)>1.d-4  ) then
+			!        do i=1, 3; do j=1, 3
+			!            if( i==j  ) then
+			!                ns_factor = ns_factor + (1.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
+			!            else
+			!                ns_factor = ns_factor + (0.d0-q(i)*q(j)/dot_product(q,q))*sublatvec(sb1,i)*sublatvec(sb2,j)
+			!            end if
+			!        end do; end do
+			!        ns_factor = ns_factor / dot_product(sublatvec(1,1:3),sublatvec(1,1:3))
+			!    else
+			!    end if
+			!    c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br)) *ns_factor
+			!end do; end do
+			!write(40,'(5ES12.4)') q(1),q(2),q(3),real(c),aimag(c)
+
+
+
+			!!--- Write SSF(\tau) -----------------------------------------------!
+			!ix=h; iy=l; iz=m
+			!!if( GN>0 ) then
+			!if(   GN>0  .and.             &
+			!	ix>=0 .and. ix<Lx .and. &
+			!	iy>=0 .and. iy<Ly .and. &
+			!	iz>=0 .and. iz<Lz       &
+			!	) then
+			!	write(50,'(A2, 4I4)') "#", ix+iy*Lx+iz*Lx*Ly+1, ix, iy, iz
+			!	do iGN=0, Ntau
+			!		c = CMPLX(0.d0,0.d0)
+			!		do sb2=1,subl; do sb1=1,subl
+			!			br = -dot_product(q,sublatvec(sb1,1:3)-sublatvec(sb2,1:3))
+			!			c = c + SqSq(iGN,sb1,sb2,ix,iy,iz)*CMPLX(dcos(br),dsin(br))
+			!		end do; end do
+			!		write(50,'(ES12.4)') real(c)
+			!	end do
+			!	write(50,'()')
+			!	write(50,'()')
+			!end if
+		end do
+		write(10,'()')
+		!write(11,'()')
+		!write(12,'()')
+	end do
+	end do
+	close(10)
+	!close(11)
+	!close(12)
+	!close(30)
+	!close(40)
+	!if( GN>0 ) close(50)
 END program structure_factor
