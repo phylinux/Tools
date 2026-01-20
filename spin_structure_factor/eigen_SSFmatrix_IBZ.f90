@@ -286,7 +286,7 @@ SUBROUTINE read_ibz_info
 
 	allocate(ibz_G(Vol/sublat,3))
 	allocate(ibz_mapping(Vol/sublat))
-	allocate(permutation(Vol/sublat,4))
+	allocate(permutation(Vol/sublat,sublat))
 	allocate(ibz_weight(Vol/sublat))
 	open(1, file="ibz_mapping.dat",action="read")
 	do i=1, Vol/sublat
