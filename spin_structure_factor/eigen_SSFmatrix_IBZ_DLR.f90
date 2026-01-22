@@ -71,14 +71,27 @@ program structure_factor
 	integer(4)                  :: iGN
 	real(8)                     :: myzero(10)=0.d0
 
+	!--- IBZ -----!
 	integer(4)                  :: ixyz(3)
 	real(8)                     :: Gvec(3)
 	real(8)                     :: kvec(3), kvecp(3)
 	real(8)                     :: kr
+	!--- DLR -----!
+	real(8)                     :: beta
+	integer(4)                  :: nt
+	real(8), allocatable        :: tau(:)
+	real(8), allocatable        :: g_mc(:)
+	real(8), allocatable        :: g_fit(:)
+	integer(4)                  :: r
+	real(8), allocatable        :: dlrit(:),dlrrf(:)
+	real(8), allocatable        :: gc(:)
+	real(8)                     :: lambda
+	real(8)                     :: eps
+
 
 	narg = command_argument_count()
-	if( narg /= 7 ) then
-		write(*,*) "Please enter: filename, Ntau, Lx, Ly, Lz, sublat, qlistfile"
+	if( narg /= 8 ) then
+		write(*,*) "Please enter: filename, beta, Ntau, Lx, Ly, Lz, sublat, qlistfile"
 		!write(*,*) "Please enter: "
 		!write(*,*) "case 1: filename, Ntau, Lx, Ly, Lz, sublat, nperiod"
 		!write(*,*) "case 2: filename, Ntau, Lx, Ly, Lz, sublat, nperiod fm"
@@ -88,16 +101,18 @@ program structure_factor
 
 	call getarg(1, filename)
 	call getarg(2, charnum)
-	read(charnum,*) Ntau
+	read(charnum,*) beta
 	call getarg(3, charnum)
-	read(charnum,*) Lx
+	read(charnum,*) Ntau
 	call getarg(4, charnum)
-	read(charnum,*) Ly
+	read(charnum,*) Lx
 	call getarg(5, charnum)
-	read(charnum,*) Lz
+	read(charnum,*) Ly
 	call getarg(6, charnum)
+	read(charnum,*) Lz
+	call getarg(7, charnum)
 	read(charnum,*) sublat
-	call getarg(7, qlistfile)
+	call getarg(8, qlistfile)
 
 	Vol = Lx*Ly*Lz*sublat
 	Lxyz = (/Lx, Ly, Lz/)
@@ -119,6 +134,20 @@ program structure_factor
 	allocate(cmatrix(sublat,sublat))
 	allocate(diagval(0:sublat))
 
+	!--- Read taulist ----------------------------------------------------!
+	open(1,file="tgrid.dat",action="read")
+	read(1,*) nt
+	allocate(tau(nt+1))
+	do i=0, nt
+		read(1,*) tau(i+1)
+	end do
+	close(1)
+	allocate(g_mc(nt+1))
+	allocate(g_fit(nt+1))
+	if( nt/=Ntau ) stop "Err: nt/=Ntau"
+	tau = tau/beta
+	!---------------------------------------------------------------------!
+
 	!--- Read qlist ------------------------------------------------------!
 	open(1,file=trim(qlistfile),action="read")
 	nq=0
@@ -129,6 +158,16 @@ program structure_factor
 	1 close(1)
 	!---------------------------------------------------------------------!
 
+	!--- initialize DLR --------------------------------------------------!
+	r = 500 ! Upper bound on DLR rank
+	allocate(dlrit(r))
+	allocate(dlrrf(r))
+	lambda = beta*4.d0
+	eps = 1.d-8
+	call dlr_it_build(lambda,eps,r,dlrrf,dlrit)
+	allocate(gc(r))
+	!---------------------------------------------------------------------!
+
 	NBlck = 0
 	!--- START READ DATA -------------------------------------------------!
 	open(10,file=trim(filename)//".txt",action="read")
@@ -137,6 +176,8 @@ program structure_factor
 	open(20,file=trim(filename)//"-bin-sum.dat",action="write")
 	!open(21,file=trim(filename)//"-bin-trace.dat",action="write")
 	!open(22,file=trim(filename)//"-bin-eigen.dat",action="write")
+	open(30,file=trim(filename)//"-DLR-bin-sum.dat",action="write")
+	open(40,file=trim(filename)//"-gc-bin-sum.dat",action="write")
 	do
 		SqSq_IBZ = CMPLX(0.d0,0.d0)
 		read(10,*,end=10) i
@@ -201,6 +242,7 @@ program structure_factor
 				end do; end do
 
 				!*** sum *******************************************************!
+				g_mc(iGN+1) = real(diagval(0))
 				write(20,'(10ES16.8)') real(diagval(0)), aimag(diagval(0)), myzero(1:10-2)
 				!*** trace *****************************************************!
 				!write(21,'(10ES16.8)') real(sum(diagval(1:sublat))), aimag(sum(diagval(1:sublat))), real(diagval(1:sublat)), myzero(1:10-sublat-2)
@@ -258,12 +300,26 @@ program structure_factor
 				!	& aimag(cmatrix(2,3)), myzero(1:8-sublat-4)
 				!write(22,'(5ES16.8)') sum(eig(1:4)), eig(1:4)
 			end do
+
+			!*** DLR fit ********************!
+			call DLR_fit(r, nt+1, tau, g_mc, gc, g_fit)
+			write(30,'(4I4)') rix+riy*Lx+riz*Lx*Ly+1, rix, riy, riz
+			do iGN=0, Ntau
+				write(30,'(10ES16.8)') g_fit(iGN+1), 0.d0, myzero(1:10-2)
+			end do
+			write(40,'(4I4)') rix+riy*Lx+riz*Lx*Ly+1, rix, riy, riz
+			do i=1, r
+				write(40,'(ES16.8)') gc(i)
+			end do
+			!********************************!
 		end do
 
 		NBlck = NBlck+1
 	end do
 	10 close(10)
 	close(20)
+	close(30)
+	close(40)
 	!close(21)
 	!close(22)
 	write(*,*) "NBlck = ", NBlck
@@ -304,202 +360,234 @@ SUBROUTINE read_ibz_info
 	end do
 	close(1)
 END SUBROUTINE read_ibz_info
+
+SUBROUTINE DLR_fit(r, nt, tau, g_mc, gc, g_fit)
+	implicit none
+	integer(4), intent(in)      :: r
+	integer(4), intent(in)      :: nt
+	real(8), intent(in)         :: tau(1:nt)
+	real(8), intent(in)         :: g_mc(1:nt)
+	real(8), intent(out)        :: gc(r)
+	real(8), intent(out)        :: g_fit(nt)
+
+	integer(4)                  :: ntst_it
+
+	integer(4)                  :: i,j
+	real(8)                     :: one
+	real(8), allocatable        :: it_tst(:)
+
+	one = 1.0d0
+
+	! Get DLR coefficients of G by least squares fitting
+	call dlr_it_fit(r,1,dlrrf,nt,tau,g_mc,gc)
+
+
+	! Evaluate DLR on imaginary time test grid
+	ntst_it = nt    ! # imaginary time test points
+	allocate(it_tst(ntst_it))
+	it_tst = tau
+	!call eqpts_rel(ntst_it,it_tst)
+
+	do i=1, ntst_it
+		call dlr_it_eval(r,1,dlrrf,gc,it_tst(i),g_fit(i))
+	enddo
+END SUBROUTINE DLR_fit
 END program structure_factor
 
-!---------------------------!
-subroutine diasym(aa,eig,n)
-	!---------------------------!
-	implicit none
-
-	integer :: n,l,inf
-	real(8) ::  aa(n,n),eig(n),work(n*(3+n/2))
-
-	l=n*(3+n/2)
-	call dsyev('V','U',n,aa,n,eig,work,l,inf)
-
-end subroutine diasym
-!---------------------!
-
-
-!---------------------------!
-!zheevd(JOBZ, UPLO, N, A, LDA, W, WORK, LWORK, RWORK, LRWORK, IWORK, LIWORK, INFO)
-subroutine diazsym(aa,eig,n)
-	!---------------------------!
-	implicit none
-
-	integer    :: n
-	complex(8) :: aa(n,n)
-	real(8)    :: eig(n)
-
-	integer    ::  lwork
-	integer    :: lrwork
-	integer    :: liwork
-	!complex(8)               ::   work(2*n+n**2)
-	!real(8)                  ::  rwork(1+5*n+2*n**2)
-	!integer                  ::  iwork(3+5*n)
-	complex(8), allocatable  ::   work(:)
-	real(8), allocatable     ::  rwork(:)
-	integer, allocatable     ::  iwork(:)
-	integer    :: info
-
-    character(100) :: char1
-	complex(8) :: aa_orig(n,n)
-	complex(8) :: Av(n), lambda_v(n)
-	real(8) :: error
-	real(8), parameter :: tolerance = 1d-10
-	integer(4)  :: i
-
-	aa_orig = aa
-
-    !write(*,*) "************* diazsym *************"
-    !write(char1,'(I1,A25)') n,"(""("",F10.4,F10.4,"")"", 2X)"
-    !do i=1, n
-    !write(*,'('//trim(char1)//')') aa_orig(i,1:n)
-    !end do
-
-    != Workspace query 
-	 lwork=-1
-	lrwork=-1
-	liwork=-1
-	allocate(work(1))
-	allocate(rwork(1))
-	allocate(iwork(1))
-
-	call zheevd('V','L',n,aa,n,eig,  work, lwork, &
-	&                           rwork,lrwork, &
-	&                           iwork,liwork, &
-	& info)
-	lwork = int(real(work(1)))
-	lrwork = int(rwork(1))
-	liwork = iwork(1)
-	!write(*,*)  lwork, 2*n+n**2
-	!write(*,*) lrwork, 1+5*n+2*n**2
-	!write(*,*) liwork, 3+5*n
-	!stop
-
-	deallocate(work, rwork, iwork)
-	allocate(work(lwork), rwork(lrwork), iwork(liwork))
-
-	!! lwork=2*n+n**2
-	!!lrwork=1+5*n+2*n**2
-	!!liwork=3+5*n
-	! lwork=198
-	!lrwork=1+5*n+2*n**2
-	!liwork=3+5*n
-	!allocate(work(lwork), rwork(lrwork), iwork(liwork))
-
-    aa = aa_orig
-	call zheevd('V','L',n,aa,n,eig,  work, lwork, &
-		&                           rwork,lrwork, &
-		&                           iwork,liwork, &
-		& info)
-
-	!if (info /= 0) then
-	!	print *, 'Error: ZHEEVD failed with INFO =', info
-	!else
-	!	print *, "Eigenvalues:"
-	!	print '(6F12.6)', eig
-	!	print *, "Eigenvectors (stored column-wise):"
-	!	do i = 1, n
-	!		print '(6("(",F8.4,",",F8.4,")"))', aa(1:n,i)
-	!	end do
-	!end if
-
-	if( info/=0 ) then
-		write(*,*) "Err: zheevd"
-	else
-		error = 0.d0
-		do i = 1, n
-			Av = matmul(aa_orig, aa(1:n,i))
-			lambda_v = eig(i) * aa(1:n,i)
-			error = error + maxval(abs(Av - lambda_v))
-			if (error > tolerance) then
-				write(*,'(6F12.8)') eig(1:6)
-				write(*,*) "Err: zheevd, Av/=labmda*v", error
-                stop
-			end if
-		end do
-	end if
-
-
-	deallocate(work, rwork, iwork)
-end subroutine diazsym
-!---------------------!
-
-
-!---------------------------!
-!zgeev(Jobvl, Jobvr, N, A, LDA, W, vl, ldvl, vr, ldvr, WORK, LWORK, RWORK, INFO)
-subroutine diaznsym(aa,eig,n)
-	!---------------------------!
-	implicit none
-
-	integer    :: n
-	complex(8) :: aa(n,n)
-	real(8)    :: eig(n)
-
-	integer    :: lda
-	integer    :: ldvl
-	integer    :: ldvr
-	integer    :: lwork
-	complex(8), allocatable  ::   w(:)
-	complex(8), allocatable  ::   work(:)
-	real(8), allocatable     ::  rwork(:)
-	complex(8), allocatable  ::   vl(:,:)
-	complex(8), allocatable  ::   vr(:,:)
-	integer    :: info
-
-    character(100) :: char1
-	complex(8) :: aa_orig(n,n)
-	complex(8) :: Av(n), lambda_v(n)
-	real(8) :: error
-	real(8), parameter :: tolerance = 1d-10
-	integer(4)  :: i
-
-	aa_orig = aa
-	lda = n
-	ldvl = n
-	ldvr = n
-
-	allocate(w(n))
-	allocate(vl(n,n))
-	allocate(vr(n,n))
-	allocate(rwork(2*n))
-
-	!= Workspace query 
-	lwork=-1
-	allocate(work(1))
-
-	call zgeev('N','V',n,aa,lda,w, vl,ldvl,vr,ldvr,  &
-		& work, lwork, rwork, info)
-	lwork = int(real(work(1))) +1
-	!write(*,*)  lwork, 2*n+n**2
-	!stop
-
-	deallocate(work)
-	allocate(work(lwork))
-
-    aa = aa_orig
-	call zgeev('N','V',n,aa,n,w, vl,ldvl,vr,ldvr,  &
-		& work, lwork, rwork, info)
-	eig(1:n) = real(w(1:n))
-
-	if( info/=0 ) then
-		write(*,*) "Err: zgeev"
-	else
-		error = 0.d0
-		do i = 1, n
-			Av = matmul(aa_orig, vr(1:n,i))
-			lambda_v = w(i) * vr(1:n,i)
-			error = error + maxval(abs(Av - lambda_v))
-			if (error > tolerance) then
-				write(*,'(6F12.8)') eig(1:6)
-				write(*,*) "Err: zheevd, Av/=labmda*v", error
-                stop
-			end if
-		end do
-	end if
-
-
-	deallocate(vl, vr, work, rwork)
-end subroutine diaznsym
-!---------------------!
+!!---------------------------!
+!subroutine diasym(aa,eig,n)
+!	!---------------------------!
+!	implicit none
+!
+!	integer :: n,l,inf
+!	real(8) ::  aa(n,n),eig(n),work(n*(3+n/2))
+!
+!	l=n*(3+n/2)
+!	call dsyev('V','U',n,aa,n,eig,work,l,inf)
+!
+!end subroutine diasym
+!!---------------------!
+!
+!
+!!---------------------------!
+!!zheevd(JOBZ, UPLO, N, A, LDA, W, WORK, LWORK, RWORK, LRWORK, IWORK, LIWORK, INFO)
+!subroutine diazsym(aa,eig,n)
+!	!---------------------------!
+!	implicit none
+!
+!	integer    :: n
+!	complex(8) :: aa(n,n)
+!	real(8)    :: eig(n)
+!
+!	integer    ::  lwork
+!	integer    :: lrwork
+!	integer    :: liwork
+!	!complex(8)               ::   work(2*n+n**2)
+!	!real(8)                  ::  rwork(1+5*n+2*n**2)
+!	!integer                  ::  iwork(3+5*n)
+!	complex(8), allocatable  ::   work(:)
+!	real(8), allocatable     ::  rwork(:)
+!	integer, allocatable     ::  iwork(:)
+!	integer    :: info
+!
+!    character(100) :: char1
+!	complex(8) :: aa_orig(n,n)
+!	complex(8) :: Av(n), lambda_v(n)
+!	real(8) :: error
+!	real(8), parameter :: tolerance = 1d-10
+!	integer(4)  :: i
+!
+!	aa_orig = aa
+!
+!    !write(*,*) "************* diazsym *************"
+!    !write(char1,'(I1,A25)') n,"(""("",F10.4,F10.4,"")"", 2X)"
+!    !do i=1, n
+!    !write(*,'('//trim(char1)//')') aa_orig(i,1:n)
+!    !end do
+!
+!    != Workspace query 
+!	 lwork=-1
+!	lrwork=-1
+!	liwork=-1
+!	allocate(work(1))
+!	allocate(rwork(1))
+!	allocate(iwork(1))
+!
+!	call zheevd('V','L',n,aa,n,eig,  work, lwork, &
+!	&                           rwork,lrwork, &
+!	&                           iwork,liwork, &
+!	& info)
+!	lwork = int(real(work(1)))
+!	lrwork = int(rwork(1))
+!	liwork = iwork(1)
+!	!write(*,*)  lwork, 2*n+n**2
+!	!write(*,*) lrwork, 1+5*n+2*n**2
+!	!write(*,*) liwork, 3+5*n
+!	!stop
+!
+!	deallocate(work, rwork, iwork)
+!	allocate(work(lwork), rwork(lrwork), iwork(liwork))
+!
+!	!! lwork=2*n+n**2
+!	!!lrwork=1+5*n+2*n**2
+!	!!liwork=3+5*n
+!	! lwork=198
+!	!lrwork=1+5*n+2*n**2
+!	!liwork=3+5*n
+!	!allocate(work(lwork), rwork(lrwork), iwork(liwork))
+!
+!    aa = aa_orig
+!	call zheevd('V','L',n,aa,n,eig,  work, lwork, &
+!		&                           rwork,lrwork, &
+!		&                           iwork,liwork, &
+!		& info)
+!
+!	!if (info /= 0) then
+!	!	print *, 'Error: ZHEEVD failed with INFO =', info
+!	!else
+!	!	print *, "Eigenvalues:"
+!	!	print '(6F12.6)', eig
+!	!	print *, "Eigenvectors (stored column-wise):"
+!	!	do i = 1, n
+!	!		print '(6("(",F8.4,",",F8.4,")"))', aa(1:n,i)
+!	!	end do
+!	!end if
+!
+!	if( info/=0 ) then
+!		write(*,*) "Err: zheevd"
+!	else
+!		error = 0.d0
+!		do i = 1, n
+!			Av = matmul(aa_orig, aa(1:n,i))
+!			lambda_v = eig(i) * aa(1:n,i)
+!			error = error + maxval(abs(Av - lambda_v))
+!			if (error > tolerance) then
+!				write(*,'(6F12.8)') eig(1:6)
+!				write(*,*) "Err: zheevd, Av/=labmda*v", error
+!                stop
+!			end if
+!		end do
+!	end if
+!
+!
+!	deallocate(work, rwork, iwork)
+!end subroutine diazsym
+!!---------------------!
+!
+!
+!!---------------------------!
+!!zgeev(Jobvl, Jobvr, N, A, LDA, W, vl, ldvl, vr, ldvr, WORK, LWORK, RWORK, INFO)
+!subroutine diaznsym(aa,eig,n)
+!	!---------------------------!
+!	implicit none
+!
+!	integer    :: n
+!	complex(8) :: aa(n,n)
+!	real(8)    :: eig(n)
+!
+!	integer    :: lda
+!	integer    :: ldvl
+!	integer    :: ldvr
+!	integer    :: lwork
+!	complex(8), allocatable  ::   w(:)
+!	complex(8), allocatable  ::   work(:)
+!	real(8), allocatable     ::  rwork(:)
+!	complex(8), allocatable  ::   vl(:,:)
+!	complex(8), allocatable  ::   vr(:,:)
+!	integer    :: info
+!
+!    character(100) :: char1
+!	complex(8) :: aa_orig(n,n)
+!	complex(8) :: Av(n), lambda_v(n)
+!	real(8) :: error
+!	real(8), parameter :: tolerance = 1d-10
+!	integer(4)  :: i
+!
+!	aa_orig = aa
+!	lda = n
+!	ldvl = n
+!	ldvr = n
+!
+!	allocate(w(n))
+!	allocate(vl(n,n))
+!	allocate(vr(n,n))
+!	allocate(rwork(2*n))
+!
+!	!= Workspace query 
+!	lwork=-1
+!	allocate(work(1))
+!
+!	call zgeev('N','V',n,aa,lda,w, vl,ldvl,vr,ldvr,  &
+!		& work, lwork, rwork, info)
+!	lwork = int(real(work(1))) +1
+!	!write(*,*)  lwork, 2*n+n**2
+!	!stop
+!
+!	deallocate(work)
+!	allocate(work(lwork))
+!
+!    aa = aa_orig
+!	call zgeev('N','V',n,aa,n,w, vl,ldvl,vr,ldvr,  &
+!		& work, lwork, rwork, info)
+!	eig(1:n) = real(w(1:n))
+!
+!	if( info/=0 ) then
+!		write(*,*) "Err: zgeev"
+!	else
+!		error = 0.d0
+!		do i = 1, n
+!			Av = matmul(aa_orig, vr(1:n,i))
+!			lambda_v = w(i) * vr(1:n,i)
+!			error = error + maxval(abs(Av - lambda_v))
+!			if (error > tolerance) then
+!				write(*,'(6F12.8)') eig(1:6)
+!				write(*,*) "Err: zheevd, Av/=labmda*v", error
+!                stop
+!			end if
+!		end do
+!	end if
+!
+!
+!	deallocate(vl, vr, work, rwork)
+!end subroutine diaznsym
+!!---------------------!
