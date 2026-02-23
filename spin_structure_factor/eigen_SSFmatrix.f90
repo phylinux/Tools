@@ -105,9 +105,9 @@ program structure_factor
 			riy = qlist(j,2); iy = mod(riy,Ly)
 			riz = qlist(j,3); iz = mod(riz,Lz)
 			q = reclatvec(1,1:3)/Lx*rix + reclatvec(2,1:3)/Ly*riy + reclatvec(3,1:3)/Lz*riz
-			write(20,'(4I4)') rix+riy*Lx+riz*Lx*Ly+1, rix, riy, riz
-			write(21,'(4I4)') rix+riy*Lx+riz*Lx*Ly+1, rix, riy, riz
-			write(22,'(4I4)') rix+riy*Lx+riz*Lx*Ly+1, rix, riy, riz
+			write(20,'(I8, 3I4)') rix+riy*Lx+riz*Lx*Ly+1, rix, riy, riz
+			write(21,'(I8, 3I4)') rix+riy*Lx+riz*Lx*Ly+1, rix, riy, riz
+			write(22,'(I8, 3I4)') rix+riy*Lx+riz*Lx*Ly+1, rix, riy, riz
 			do iGN=0, Ntau
 				r = CMPLX(0.d0, 0.d0)
 				do sb1=1, subl; do sb2=1, subl
