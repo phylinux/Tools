@@ -7,9 +7,10 @@ program structure_factor
 
 	character(50)               :: filename, qlistfile
 	character(100)              :: char1
-	integer(4)                  :: Ntau
+	integer(4)                  :: GN, Ntau
 	complex(16), allocatable    :: SqSq(:,:,:,:,:,:)
 	integer(4)                  :: qlist(1000, 3), nq
+	logical                     :: connected
 	character(50)               :: charnum, charformat
 
 	real(8)                     :: q(3)
@@ -27,38 +28,60 @@ program structure_factor
 	complex(8), allocatable     :: cmatrix(:,:)
 	real(8)                     :: br
 	!real(8)                     :: r(3)
+	complex(8), allocatable     :: Gtau_sum(:), Gtau_trace(:,:), Gtau_matrix(:,:,:)
 	complex(8), allocatable     :: r(:)
 	real(8)                     :: aa(10,10)
 	complex(8)                  :: zaa(10,10)
 	real(8)                     :: eig(10)
-	integer(4)                  :: i, j
+	integer(4)                  :: i, j, k
 	integer(4)                  :: iGN
 	real(8)                     :: myzero(10)=0.d0
 
 	narg = command_argument_count()
-	if( narg /= 7 ) then
-		write(*,*) "Please enter: filename, Ntau, Lx, Ly, Lz, subl, qlistfile"
+	if( narg/=8 .and. narg/=9 ) then
+		write(*,*) "Please enter: filename, GN, Ntau, Lx, Ly, Lz, subl, qlistfile (, connected)"
 		stop
 	end if
 
+	connected = .false.
 	call getarg(1, filename)
 	call getarg(2, charnum)
-	read(charnum,*) Ntau
+	read(charnum,*) GN
 	call getarg(3, charnum)
-	read(charnum,*) Lx
+	read(charnum,*) Ntau
 	call getarg(4, charnum)
-	read(charnum,*) Ly
+	read(charnum,*) Lx
 	call getarg(5, charnum)
-	read(charnum,*) Lz
+	read(charnum,*) Ly
 	call getarg(6, charnum)
+	read(charnum,*) Lz
+	call getarg(7, charnum)
 	read(charnum,*) subl
-	call getarg(7, qlistfile)
+	call getarg(8, qlistfile)
+	if( narg==9 ) then
+		call getarg(9, charnum)
+		read(charnum,*) connected
+		write(*,*) "--->>> CONNECTED correlation function <<<---"
+	else
+		write(*,*) "--->>> FULL correlation function <<<---"
+	end if
+	if( GN>Ntau ) then
+		write(*,*) "Err: Ntau<GN/2, can not calculate connected correlation function"
+		write(*,*) "GN = ", GN, " Ntau = ", Ntau
+		stop
+	end if
 
 	allocate(SqSq(0:Ntau,subl,subl,0:Lx-1,0:Ly-1,0:Lz-1))
 	SqSq = CMPLX(0.d0,0.d0,8)
 
 	allocate(cmatrix(subl,subl))
 	allocate(r(0:subl))
+	allocate(Gtau_sum(0:Ntau))
+	allocate(Gtau_trace(subl,0:Ntau))
+	allocate(Gtau_matrix(subl,subl,0:Ntau))
+	Gtau_sum = CMPLX(0.d0,0.d0,8)
+	Gtau_trace = CMPLX(0.d0,0.d0,8)
+	Gtau_matrix = CMPLX(0.d0,0.d0,8)
 
 	allocate(sublatvec(subl,3))
 	latvec = 0.d0
@@ -120,14 +143,15 @@ program structure_factor
 					!if( sb1==sb2 ) r(2) = r(2)+ cmatrix(sb1,sb2)
 					if( sb1==sb2 ) r(sb1) = cmatrix(sb1,sb1)
 				end do; end do
+				Gtau_sum(iGN) = r(0)
+				Gtau_trace(1:subl, iGN) = r(1:subl)
+				Gtau_matrix(:,:, iGN) = cmatrix
 
-				!*** sum *******************************************************!
-				write(20,'(10ES16.8)') real(r(0)), aimag(r(0)), myzero(1:10-2)
-				!*** trace *****************************************************!
-				write(21,'(10ES16.8)') real(sum(r(1:subl))), aimag(sum(r(1:subl))), real(r(1:subl)), myzero(1:10-subl-2)
-				!do sb2=1, subl; do sb1=1, subl
-				!	write(21,'(2ES16.8)') cmatrix(sb1,sb2)
-				!end do; end do
+				!!*** sum *******************************************************!
+				!write(20,'(10ES16.8)') real(r(0)), aimag(r(0)), myzero(1:10-2)
+				!!*** trace *****************************************************!
+				!write(21,'(10ES16.8)') real(sum(r(1:subl))), aimag(sum(r(1:subl))), real(r(1:subl)), myzero(1:10-subl-2)
+
 				!*** eigen *****************************************************!
 				!=== real ==============================!
 				aa = 0.d0
@@ -178,6 +202,24 @@ program structure_factor
 				!write(22,'(8ES16.8)') eig(1:subl), sum(eig(1:subl)), aimag(cmatrix(1,2)), aimag(cmatrix(1,3)), &
 				!	& aimag(cmatrix(2,3)), myzero(1:8-subl-4)
 				!write(22,'(5ES16.8)') sum(eig(1:4)), eig(1:4)
+			end do
+			if( connected ) then
+				k = GN
+				Gtau_sum = Gtau_sum - Gtau_sum(k)
+				do sb1=1, subl; do sb2=1, subl
+					Gtau_matrix(sb1,sb2,:) = Gtau_matrix(sb1,sb2,:) - Gtau_matrix(sb1,sb2,k)
+					if( sb1==sb2 ) then
+						Gtau_trace(sb1,:) = Gtau_trace(sb1,:) - Gtau_trace(sb1,k)
+					end if
+				end do; end do
+			end if
+			do iGN=0, Ntau
+				r(0) = Gtau_sum(iGN)
+				r(1:subl) = Gtau_trace(1:subl, iGN)
+				!*** sum *******************************************************!
+				write(20,'(10ES16.8)') real(r(0)), aimag(r(0)), myzero(1:10-2)
+				!*** trace *****************************************************!
+				write(21,'(10ES16.8)') real(sum(r(1:subl))), aimag(sum(r(1:subl))), real(r(1:subl)), myzero(1:10-subl-2)
 			end do
 		end do
 
