@@ -34,6 +34,7 @@ PROGRAM r2q
 	integer(4)                  :: D
 	integer(4)                  :: Lx, Ly, Lz
 	integer(4)                  :: subl
+	integer(4)                  :: Vol
 	integer(4)                  :: NBlck
 	real(8)                     :: reclatvec(3,3)
 	real(8), allocatable        :: sublatvec(:,:)
@@ -69,6 +70,8 @@ PROGRAM r2q
 		write(*,*) "Err: D/= 2 or 3"
 		stop
 	end if
+
+	Vol = Lx*Ly*Lz*subl
 
 	call init_fftw
 
@@ -153,6 +156,8 @@ PROGRAM r2q
 				SqSq(sb1,sb2,ix,iy,iz) = dot_product(Sq(sb2,ix,iy,iz,1:spintype),Sq(sb1,ix,iy,iz,1:spintype))
 			end do;  end do
 		end do; end do; end do
+
+		SqSq = SqSq/Vol
 
 		NBlck = NBlck+1
 		write(20,'(I5)') NBlck
