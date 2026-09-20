@@ -28,10 +28,19 @@ SUBROUTINE write2file(iobs)
 	integer(4), intent(in)      :: iobs
 	integer(4)                  :: i, j, k
 
-	!-- open file ----------------------------------------------------
-	open (1,file=trim(output), action="write")
+	!-- write to terminal ----------------------------------------------------
 	do i = 1, iobs
-		write(1,'(I4,3ES20.8)') i, Ave(i), Dev(i), Cor(i)
+		write(*,'(I4,3ES18.8)') i, Ave(i), Dev(i), Cor(i)
 	enddo
-	close(1)
+
+	!-- write to file ----------------------------------------------------
+	!open (1,file=trim(output), action="write")
+	!do i = 1, iobs
+	!	write(1,'(I4,3ES20.8)') i, Ave(i), Dev(i), Cor(i)
+	!enddo
+	!close(1)
+
+	call flush(6)
+	call flush(0)
 END SUBROUTINE write2file
+

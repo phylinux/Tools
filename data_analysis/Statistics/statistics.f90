@@ -1,9 +1,10 @@
 
 !==============Statistics ==========================================
 !! THIS IS PROJECT-INDEPENDENT 
-SUBROUTINE stat_analy(iblck)
+SUBROUTINE stat_analy(iblck, method)
 	implicit none
 	integer          :: iblck
+	integer          :: method
 	integer          :: j, k, k0
 	double precision :: devn, devp, nor
 
@@ -29,9 +30,10 @@ SUBROUTINE stat_analy(iblck)
 			enddo 
 			Dev(j)   = Dev(j)*nor;        Cor(j) = Cor(j)*nor
 			if(Dev(j)>eps)                Cor(j) = Cor(j)/Dev(j)
-			Dev(j)   = dsqrt(Dev(j)/(iblck-1.d0))
-			if(dabs(Cor(j))>tol) prt = .false.
+			Dev(j)   = sqrt(Dev(j)/(iblck-1.d0))
+			if(abs(Cor(j))>tol) prt = .false.
 		ENDDO 
+		if( method==1 ) Dev = Dev*sqrt(iblck*1.d0)   ! for bootstrap
 
 		!IF(prt)                         EXIT Coarsen 
 		!IF(NBlck<=64)    THEN
